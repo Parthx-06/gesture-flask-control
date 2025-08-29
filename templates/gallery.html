@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Gesture Control • Gallery{% endblock %}
+{% block content %}
+<h2>Screenshots</h2>
+{% if files %}
+<div class="grid">
+  {% for f in files %}
+    <a class="shot" href="{{ url_for('screenshots', fname=f) }}" target="_blank">
+      <img src="{{ url_for('screenshots', fname=f) }}" alt="{{ f }}">
+      <span>{{ f }}</span>
+    </a>
+  {% endfor %}
+</div>
+{% else %}
+<p>No screenshots yet — hold all five fingers to take one.</p>
+{% endif %}
+{% endblock %}

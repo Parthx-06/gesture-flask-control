@@ -1,15 +1,49 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Hand Gesture Control</title>
-    <style>
-        body { text-align: center; font-family: Arial; background: #111; color: #fff; }
-        h1 { margin-top: 20px; }
-        img { width: 80%; border: 3px solid #0f0; border-radius: 12px; margin-top: 20px; }
-    </style>
-</head>
-<body>
-    <h1>Hand Gesture Control System</h1>
-    <img src="{{ url_for('video_feed') }}" />
-</body>
-</html>
+{% extends "base.html" %}
+{% block title %}Gesture Control • Home{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>Control Your PC with Hand Gestures</h1>
+  <p>Move the cursor, click, scroll, switch apps, manage volume, and take screenshots — touch-free.</p>
+
+  <div class="controls">
+    <button id="startBtn" class="btn primary">Start</button>
+    <button id="stopBtn" class="btn ghost">Stop</button>
+    <a class="btn link" href="/gallery">Open Gallery</a>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-left">
+    <div class="video-wrap">
+      <img id="videoStream" src="/video" alt="Live stream">
+    </div>
+    <div class="status">
+      <div>🟢 Status: <span id="runState">stopped</span></div>
+      <div>✋ Gesture: <span id="gesture">None</span></div>
+      <div>🔊 Volume: <span id="volume">0</span>%</div>
+    </div>
+  </div>
+
+  <div class="panel-right">
+    <h3>Settings</h3>
+    <label>Scroll Sensitivity <input id="scroll" type="range" min="5" max="120" value="40"></label>
+    <label>Mouse Sensitivity <input id="mouse" type="range" min="0.5" max="3" value="1.5" step="0.1"></label>
+    <label>Cooldown (s) <input id="cooldown" type="range" min="0.05" max="0.6" value="0.2" step="0.01"></label>
+    <button id="saveCfg" class="btn small">Save</button>
+
+    <div class="legend">
+      <h4>Gesture Map</h4>
+      <ul>
+        <li>☝️ One finger — Move cursor</li>
+        <li>✌️ Two fingers — Click / Double click</li>
+        <li>🤟 Three — Scroll up</li>
+        <li>🖐️ Four — Scroll down</li>
+        <li>🖐️ All — Screenshot</li>
+        <li>🤏 Pinch — Volume</li>
+        <li>🧠 Pinky — Alt+Tab</li>
+        <li>📞 Phone — Show Desktop</li>
+      </ul>
+    </div>
+  </div>
+</section>
+{% endblock %}
