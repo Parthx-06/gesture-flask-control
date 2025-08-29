@@ -5,3 +5,4 @@ numpy
 pyautogui
 pycaw
 comtypes
+mediapipe
