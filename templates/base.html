@@ -3,18 +3,31 @@
 <head>
   <meta charset="utf-8">
   <title>{% block title %}Gesture Control{% endblock %}</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Control your PC with hand gestures — move cursor, click, scroll, adjust volume, and take screenshots touch-free using AI-powered hand tracking.">
+  <meta name="theme-color" content="#0a0e1a">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤚</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+
+  <!-- Animated background orbs -->
+  <div class="bg-canvas">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
   <nav class="nav">
-    <div class="brand">🙌 Gesture Control</div>
+    <div class="brand">🤚 GestureFlow</div>
     <div class="links">
       <a href="/">Home</a>
       <a href="/gallery">Gallery</a>
-      <a href="https://github.com" target="_blank" rel="noreferrer">GitHub</a>
+      <a href="/about">About</a>
+      <a href="https://github.com/Parthx-06" target="_blank" rel="noreferrer">GitHub</a>
     </div>
   </nav>
 
@@ -23,8 +36,17 @@
   </main>
 
   <footer class="footer">
-    <span>© {{ 2025 }} Gesture Control •-- Parth_666_</span>
+    <span>© <script>document.write(new Date().getFullYear())</script> GestureFlow • Built by Parth</span>
   </footer>
+
+  <!-- Toast container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox">
+    <button class="lightbox-close" id="lightboxClose">✕</button>
+    <img id="lightboxImg" src="" alt="Preview">
+  </div>
 
   <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>

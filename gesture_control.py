@@ -1,53 +1,95 @@
 # gesture_control.py
-import cv2
-import mediapipe as mp
-import pyautogui
-import numpy as np
 import os
+import sys
 import time
 import math
+import numpy as np
 from datetime import datetime
 from threading import Thread, Event, Lock
-from ctypes import cast, POINTER
-from comtypes import CLSCTX_ALL
-from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+
+# --- Detect environment ---
+IS_WINDOWS = sys.platform == "win32"
+HAS_CAMERA = False
+HAS_DISPLAY = os.environ.get("DISPLAY") or IS_WINDOWS  # X11 or Windows
+
+# --- Conditional imports (these FAIL on headless Linux / Render) ---
+cv2 = None
+mp = None
+pyautogui = None
+volume_available = False
+
+try:
+    import cv2 as _cv2
+    cv2 = _cv2
+except ImportError:
+    print("[INFO] opencv-python not available")
+
+try:
+    import mediapipe as _mp
+    mp = _mp
+except ImportError:
+    print("[INFO] mediapipe not available")
+
+try:
+    import pyautogui as _pyautogui
+    pyautogui = _pyautogui
+    pyautogui.FAILSAFE = False
+except ImportError:
+    print("[INFO] pyautogui not available")
+
+# Windows-only audio
+audio_volume_iface = None
+if IS_WINDOWS:
+    try:
+        from ctypes import cast, POINTER
+        from comtypes import CLSCTX_ALL
+        from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+        devices = AudioUtilities.GetSpeakers()
+        interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+        audio_volume_iface = cast(interface, POINTER(IAudioEndpointVolume))
+        volume_available = True
+    except Exception as e:
+        print(f"[INFO] Audio setup skipped: {e}")
+
 
 class GestureController:
+    """Full gesture controller — only works on Windows with a camera."""
+
     def __init__(self):
-        # --- System control ---
-        pyautogui.FAILSAFE = False
+        self.volume_iface = audio_volume_iface
 
-        # --- Audio setup (Windows) ---
-        self.volume_iface = None
-        try:
-            devices = AudioUtilities.GetSpeakers()
-            interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-            self.volume_iface = cast(interface, POINTER(IAudioEndpointVolume))
-        except Exception as e:
-            print("Audio setup failed:", e)
+        # MediaPipe
+        self.mp_hands = mp.solutions.hands if mp else None
+        self.hands = (
+            self.mp_hands.Hands(
+                max_num_hands=1,
+                min_detection_confidence=0.8,
+                min_tracking_confidence=0.7,
+            )
+            if self.mp_hands
+            else None
+        )
+        self.mp_drawing = mp.solutions.drawing_utils if mp else None
 
-        # --- MediaPipe ---
-        self.mp_hands = mp.solutions.hands
-        self.hands = self.mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.8, min_tracking_confidence=0.7)
-        self.mp_drawing = mp.solutions.drawing_utils
-
-        # --- Screen / camera ---
-        self.screen_w, self.screen_h = pyautogui.size()
+        # Screen / camera
+        self.screen_w, self.screen_h = (
+            pyautogui.size() if pyautogui else (1920, 1080)
+        )
         self.cam_w, self.cam_h = 1280, 720
 
-        # --- Config (can be updated from UI) ---
+        # Config (can be updated from UI)
         self.config = {
-            'scroll_sensitivity': 40,
-            'mouse_sensitivity': 1.5,
-            'cooldown': 0.2,
-            'screenshot_dir': 'static/screenshots',  # served by Flask
-            'vol_min_distance': 0.02,
-            'vol_max_distance': 0.20,
-            'double_click_threshold': 0.30
+            "scroll_sensitivity": 40,
+            "mouse_sensitivity": 1.5,
+            "cooldown": 0.2,
+            "screenshot_dir": "static/screenshots",
+            "vol_min_distance": 0.02,
+            "vol_max_distance": 0.20,
+            "double_click_threshold": 0.30,
         }
-        os.makedirs(self.config['screenshot_dir'], exist_ok=True)
+        os.makedirs(self.config["screenshot_dir"], exist_ok=True)
 
-        # --- State ---
+        # State
         self._thread = None
         self._stop = Event()
         self._lock = Lock()
@@ -55,7 +97,7 @@ class GestureController:
         self._last_click_time = 0.0
         self._current_gesture = "None"
         self._current_volume = 0
-        self._last_frame = None  # BGR frame for streaming
+        self._last_frame = None
 
     # ---------- public API ----------
     def start(self):
@@ -78,14 +120,13 @@ class GestureController:
             return {
                 "running": self.is_running(),
                 "gesture": self._current_gesture,
-                "volume": int(self._current_volume * 100)
+                "volume": int(self._current_volume * 100),
             }
 
     def update_config(self, **kwargs):
         with self._lock:
             for k, v in kwargs.items():
                 if k in self.config and v is not None:
-                    # clamp where sensible
                     if k == "cooldown":
                         v = max(0.05, float(v))
                     elif k in ("scroll_sensitivity",):
@@ -100,11 +141,22 @@ class GestureController:
         with self._lock:
             frame = self._last_frame.copy() if self._last_frame is not None else None
         if frame is None:
-            # generate a placeholder
             frame = np.zeros((480, 640, 3), dtype=np.uint8)
-            cv2.putText(frame, "Waiting for camera...", (20, 240), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
-        ret, buf = cv2.imencode(".jpg", frame)
-        return buf.tobytes()
+            if cv2:
+                cv2.putText(
+                    frame,
+                    "Waiting for camera...",
+                    (20, 240),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.9,
+                    (255, 255, 255),
+                    2,
+                )
+        if cv2:
+            ret, buf = cv2.imencode(".jpg", frame)
+            return buf.tobytes()
+        # Fallback: return a minimal 1x1 JPEG
+        return b""
 
     # ---------- internals ----------
     def _calculate_distance(self, p1, p2):
@@ -115,8 +167,11 @@ class GestureController:
 
     def _take_screenshot(self):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = os.path.join(self.config['screenshot_dir'], f'screenshot_{timestamp}.png')
-        pyautogui.screenshot(filename)
+        filename = os.path.join(
+            self.config["screenshot_dir"], f"screenshot_{timestamp}.png"
+        )
+        if pyautogui:
+            pyautogui.screenshot(filename)
         return filename
 
     def _get_finger_state(self, hand):
@@ -128,16 +183,28 @@ class GestureController:
         return fingers
 
     def _recognize_gesture(self, f):
-        if f == [0,1,0,0,0]: return 'one_finger'
-        if f == [0,1,1,0,0]: return 'two_fingers'
-        if f == [0,1,1,1,0]: return 'three_fingers'
-        if f == [0,1,1,1,1]: return 'four_fingers'
-        if f == [1,1,1,1,1]: return 'five_fingers'
-        if f == [0,0,0,0,1]: return 'pinky'
-        if f == [1,0,0,0,1]: return 'phone'
+        if f == [0, 1, 0, 0, 0]:
+            return "one_finger"
+        if f == [0, 1, 1, 0, 0]:
+            return "two_fingers"
+        if f == [0, 1, 1, 1, 0]:
+            return "three_fingers"
+        if f == [0, 1, 1, 1, 1]:
+            return "four_fingers"
+        if f == [1, 1, 1, 1, 1]:
+            return "five_fingers"
+        if f == [0, 0, 0, 0, 1]:
+            return "pinky"
+        if f == [1, 0, 0, 0, 1]:
+            return "phone"
         return None
 
     def _run(self):
+        if not cv2:
+            print("[ERROR] OpenCV not available, cannot start camera loop")
+            self._stop.set()
+            return
+
         cap = cv2.VideoCapture(0)
         cap.set(3, self.cam_w)
         cap.set(4, self.cam_h)
@@ -153,15 +220,18 @@ class GestureController:
                     continue
                 img = cv2.flip(img, 1)
                 rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                results = self.hands.process(rgb_img)
+                results = self.hands.process(rgb_img) if self.hands else None
 
                 current_gesture = "None"
                 current_time = time.time()
                 vol_scalar = 0.0
 
-                if results.multi_hand_landmarks:
+                if results and results.multi_hand_landmarks:
                     hand = results.multi_hand_landmarks[0]
-                    self.mp_drawing.draw_landmarks(img, hand, self.mp_hands.HAND_CONNECTIONS)
+                    if self.mp_drawing and self.mp_hands:
+                        self.mp_drawing.draw_landmarks(
+                            img, hand, self.mp_hands.HAND_CONNECTIONS
+                        )
 
                     fingers = self._get_finger_state(hand)
                     gesture = self._recognize_gesture(fingers)
@@ -171,26 +241,50 @@ class GestureController:
 
                     # Volume control via pinch
                     vol_dist = self._calculate_distance(thumb_tip, index_tip)
-                    vol_scalar = np.interp(vol_dist,
-                                           [self.config['vol_min_distance'], self.config['vol_max_distance']],
-                                           [0, 1])
+                    vol_scalar = np.interp(
+                        vol_dist,
+                        [
+                            self.config["vol_min_distance"],
+                            self.config["vol_max_distance"],
+                        ],
+                        [0, 1],
+                    )
                     vol_scalar = float(np.clip(vol_scalar, 0, 1))
                     if self.volume_iface:
                         try:
-                            self.volume_iface.SetMasterVolumeLevelScalar(vol_scalar, None)
+                            self.volume_iface.SetMasterVolumeLevelScalar(
+                                vol_scalar, None
+                            )
                         except Exception:
                             pass
 
                     # Actions
-                    if gesture == 'one_finger':
-                        # cursor
-                        mx = int(self._map(index_tip.x, 0.1, 0.9, 0, self.screen_w))
-                        my = int(self._map(index_tip.y, 0.1, 0.9, 0, self.screen_h))
-                        pyautogui.moveTo(mx, my, duration=max(0.01, 0.07 / self.config['mouse_sensitivity']))
+                    if gesture == "one_finger" and pyautogui:
+                        mx = int(
+                            self._map(index_tip.x, 0.1, 0.9, 0, self.screen_w)
+                        )
+                        my = int(
+                            self._map(index_tip.y, 0.1, 0.9, 0, self.screen_h)
+                        )
+                        pyautogui.moveTo(
+                            mx,
+                            my,
+                            duration=max(
+                                0.01, 0.07 / self.config["mouse_sensitivity"]
+                            ),
+                        )
                         current_gesture = "Cursor"
 
-                    elif gesture == 'two_fingers' and current_time - self._last_action_time > self.config['cooldown']:
-                        if current_time - self._last_click_time < self.config['double_click_threshold']:
+                    elif (
+                        gesture == "two_fingers"
+                        and pyautogui
+                        and current_time - self._last_action_time
+                        > self.config["cooldown"]
+                    ):
+                        if (
+                            current_time - self._last_click_time
+                            < self.config["double_click_threshold"]
+                        ):
                             pyautogui.doubleClick()
                             current_gesture = "Double Click"
                         else:
@@ -199,38 +293,78 @@ class GestureController:
                         self._last_click_time = current_time
                         self._last_action_time = current_time
 
-                    elif gesture == 'three_fingers' and current_time - self._last_action_time > self.config['cooldown']:
-                        pyautogui.scroll(self.config['scroll_sensitivity'])
+                    elif (
+                        gesture == "three_fingers"
+                        and pyautogui
+                        and current_time - self._last_action_time
+                        > self.config["cooldown"]
+                    ):
+                        pyautogui.scroll(self.config["scroll_sensitivity"])
                         current_gesture = "Scroll Up"
                         self._last_action_time = current_time
 
-                    elif gesture == 'four_fingers' and current_time - self._last_action_time > self.config['cooldown']:
-                        pyautogui.scroll(-self.config['scroll_sensitivity'])
+                    elif (
+                        gesture == "four_fingers"
+                        and pyautogui
+                        and current_time - self._last_action_time
+                        > self.config["cooldown"]
+                    ):
+                        pyautogui.scroll(-self.config["scroll_sensitivity"])
                         current_gesture = "Scroll Down"
                         self._last_action_time = current_time
 
-                    elif gesture == 'five_fingers' and current_time - self._last_action_time > self.config['cooldown']:
+                    elif (
+                        gesture == "five_fingers"
+                        and current_time - self._last_action_time
+                        > self.config["cooldown"]
+                    ):
                         _ = self._take_screenshot()
                         current_gesture = "Screenshot Saved"
                         self._last_action_time = current_time
-                        overlay = cv2.addWeighted(img, 0.5, np.zeros_like(img), 0.5, 0)
+                        overlay = cv2.addWeighted(
+                            img, 0.5, np.zeros_like(img), 0.5, 0
+                        )
                         img = overlay
 
-                    elif gesture == 'pinky' and current_time - self._last_action_time > self.config['cooldown']:
-                        pyautogui.hotkey('alt', 'tab')
+                    elif (
+                        gesture == "pinky"
+                        and pyautogui
+                        and current_time - self._last_action_time
+                        > self.config["cooldown"]
+                    ):
+                        pyautogui.hotkey("alt", "tab")
                         current_gesture = "Alt+Tab"
                         self._last_action_time = current_time
 
-                    elif gesture == 'phone' and current_time - self._last_action_time > self.config['cooldown']:
-                        pyautogui.hotkey('win', 'd')
+                    elif (
+                        gesture == "phone"
+                        and pyautogui
+                        and current_time - self._last_action_time
+                        > self.config["cooldown"]
+                    ):
+                        pyautogui.hotkey("win", "d")
                         current_gesture = "Show Desktop"
                         self._last_action_time = current_time
 
                 # HUD
-                cv2.putText(img, f"Gesture: {current_gesture}", (10, 30),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-                cv2.putText(img, f"Volume: {int(vol_scalar*100)}%", (10, 60),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                cv2.putText(
+                    img,
+                    f"Gesture: {current_gesture}",
+                    (10, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (0, 255, 0),
+                    2,
+                )
+                cv2.putText(
+                    img,
+                    f"Volume: {int(vol_scalar*100)}%",
+                    (10, 60),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (0, 255, 0),
+                    2,
+                )
 
                 with self._lock:
                     self._current_gesture = current_gesture
@@ -239,9 +373,82 @@ class GestureController:
 
         finally:
             cap.release()
-            cv2.destroyAllWindows()
             with self._lock:
                 self._current_gesture = "None"
 
-# Singleton for import convenience
-controller = GestureController()
+
+class DemoController:
+    """Lightweight fallback for headless servers (Render, etc.).
+    Returns static data — no camera, no OS control.
+    """
+
+    def __init__(self):
+        self.config = {
+            "scroll_sensitivity": 40,
+            "mouse_sensitivity": 1.5,
+            "cooldown": 0.2,
+            "screenshot_dir": "static/screenshots",
+            "vol_min_distance": 0.02,
+            "vol_max_distance": 0.20,
+            "double_click_threshold": 0.30,
+        }
+        os.makedirs(self.config["screenshot_dir"], exist_ok=True)
+        self._demo_mode = True
+
+    def start(self):
+        pass  # no-op
+
+    def stop(self):
+        pass  # no-op
+
+    def is_running(self):
+        return False
+
+    def status(self):
+        return {
+            "running": False,
+            "gesture": "Demo Mode",
+            "volume": 50,
+            "demo": True,
+        }
+
+    def update_config(self, **kwargs):
+        for k, v in kwargs.items():
+            if k in self.config and v is not None:
+                self.config[k] = v
+        return self.config
+
+    def get_jpeg_frame(self):
+        # Return a simple placeholder frame
+        frame = np.zeros((480, 640, 3), dtype=np.uint8)
+        if cv2:
+            cv2.putText(
+                frame,
+                "Demo Mode — No Camera",
+                (80, 220),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1.0,
+                (108, 140, 255),
+                2,
+            )
+            cv2.putText(
+                frame,
+                "Run locally for gesture control",
+                (90, 270),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (170, 180, 220),
+                2,
+            )
+            _, buf = cv2.imencode(".jpg", frame)
+            return buf.tobytes()
+        return b""
+
+
+# Singleton — pick real or demo based on environment
+if os.environ.get("RENDER"):
+    print("[INFO] Running in DEMO mode (Render deployment detected)")
+    controller = DemoController()
+else:
+    print("[INFO] Running in FULL mode (Local environment)")
+    controller = GestureController()

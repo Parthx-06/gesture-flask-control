@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}GestureFlow • About{% endblock %}
+{% block content %}
+<section class="about-hero">
+  <h1>About GestureFlow</h1>
+  <p>AI-powered hand gesture recognition to control your entire PC — no touch required.</p>
+</section>
+
+<div class="about-grid">
+  <div class="about-card">
+    <div class="card-icon">🧠</div>
+    <h3>AI Hand Tracking</h3>
+    <p>Uses Google's MediaPipe for real-time hand landmark detection with sub-frame latency, recognizing 8+ distinct gestures.</p>
+  </div>
+  <div class="about-card">
+    <div class="card-icon">🖱️</div>
+    <h3>Full PC Control</h3>
+    <p>Move the cursor, click, double-click, scroll, adjust volume, switch windows, take screenshots — all with your hands.</p>
+  </div>
+  <div class="about-card">
+    <div class="card-icon">🌐</div>
+    <h3>Web Dashboard</h3>
+    <p>Live video stream, real-time gesture status, adjustable settings, and a screenshot gallery — all in your browser.</p>
+  </div>
+</div>
+
+<section class="steps reveal">
+  <h2>How It Works</h2>
+  <div class="step">
+    <div class="step-num"></div>
+    <div>
+      <h4>Camera Captures Your Hand</h4>
+      <p>OpenCV reads frames from your webcam at high resolution for precise tracking.</p>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num"></div>
+    <div>
+      <h4>MediaPipe Detects Landmarks</h4>
+      <p>Google's AI model identifies 21 hand landmarks in real-time, determining finger positions.</p>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num"></div>
+    <div>
+      <h4>Gesture Recognition</h4>
+      <p>Finger states are analyzed to recognize gestures — one finger, pinch, fist, open palm, and more.</p>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num"></div>
+    <div>
+      <h4>System Action Executed</h4>
+      <p>The recognized gesture triggers the corresponding action — cursor movement, clicks, volume control, etc.</p>
+    </div>
+  </div>
+</section>
+
+<div style="text-align: center; margin-bottom: 36px;" class="reveal">
+  <h3 style="font-family: var(--font-display); margin-bottom: 14px;">Tech Stack</h3>
+  <div class="tech-badges">
+    <span class="tech-badge">Python</span>
+    <span class="tech-badge">Flask</span>
+    <span class="tech-badge">OpenCV</span>
+    <span class="tech-badge">MediaPipe</span>
+    <span class="tech-badge">PyAutoGUI</span>
+    <span class="tech-badge">NumPy</span>
+    <span class="tech-badge">Gunicorn</span>
+    <span class="tech-badge">HTML / CSS / JS</span>
+  </div>
+  <a href="/" class="btn primary" style="margin-top: 18px;">← Back to Home</a>
+</div>
+{% endblock %}

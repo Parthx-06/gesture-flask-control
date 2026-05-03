@@ -1,48 +1,95 @@
 {% extends "base.html" %}
-{% block title %}Gesture Control • Home{% endblock %}
+{% block title %}GestureFlow • Hand Gesture PC Control{% endblock %}
 {% block content %}
 <section class="hero">
+  {% if demo_mode %}
+  <div class="demo-badge">⚡ Demo Mode — Run locally for full gesture control</div>
+  {% endif %}
   <h1>Control Your PC with Hand Gestures</h1>
-  <p>Move the cursor, click, scroll, switch apps, manage volume, and take screenshots — touch-free.</p>
+  <p>Move the cursor, click, scroll, switch apps, manage volume, and take screenshots — completely touch-free.</p>
 
   <div class="controls">
-    <button id="startBtn" class="btn primary">Start</button>
-    <button id="stopBtn" class="btn ghost">Stop</button>
-    <a class="btn link" href="/gallery">Open Gallery</a>
+    <button id="startBtn" class="btn primary">▶ Start</button>
+    <button id="stopBtn" class="btn danger">■ Stop</button>
+    <a class="btn link" href="/gallery">📸 Gallery</a>
+    <a class="btn ghost" href="/about">ℹ About</a>
   </div>
 </section>
 
-<section class="panel">
+<section class="panel reveal">
   <div class="panel-left">
-    <div class="video-wrap">
-      <img id="videoStream" src="/video" alt="Live stream">
-    </div>
-    <div class="status">
-      <div>🟢 Status: <span id="runState">stopped</span></div>
-      <div>✋ Gesture: <span id="gesture">None</span></div>
-      <div>🔊 Volume: <span id="volume">0</span>%</div>
+    <div class="video-card">
+      <div class="video-wrap">
+        <img id="videoStream" src="/video" alt="Live gesture feed">
+      </div>
+      <div class="status">
+        <div class="status-item">
+          <div class="status-dot" id="statusDot"></div>
+          <span>Status:</span>
+          <span class="status-value" id="runState">stopped</span>
+        </div>
+        <div class="status-item">
+          <span>✋</span>
+          <span>Gesture:</span>
+          <span class="status-value" id="gesture">None</span>
+        </div>
+        <div class="status-item">
+          <span>🔊</span>
+          <span>Volume:</span>
+          <span class="status-value" id="volume">0</span><span class="status-value">%</span>
+        </div>
+      </div>
+      <div style="padding: 8px 18px 14px;">
+        <div class="vol-bar-wrap">
+          <div class="vol-bar" id="volBar" style="width: 0%"></div>
+        </div>
+      </div>
     </div>
   </div>
 
   <div class="panel-right">
-    <h3>Settings</h3>
-    <label>Scroll Sensitivity <input id="scroll" type="range" min="5" max="120" value="40"></label>
-    <label>Mouse Sensitivity <input id="mouse" type="range" min="0.5" max="3" value="1.5" step="0.1"></label>
-    <label>Cooldown (s) <input id="cooldown" type="range" min="0.05" max="0.6" value="0.2" step="0.01"></label>
-    <button id="saveCfg" class="btn small">Save</button>
+    <div class="settings-card">
+      <h3>⚙ Settings</h3>
 
-    <div class="legend">
-      <h4>Gesture Map</h4>
-      <ul>
-        <li>☝️ One finger — Move cursor</li>
-        <li>✌️ Two fingers — Click / Double click</li>
-        <li>🤟 Three — Scroll up</li>
-        <li>🖐️ Four — Scroll down</li>
-        <li>🖐️ All — Screenshot</li>
-        <li>🤏 Pinch — Volume</li>
-        <li>🧠 Pinky — Alt+Tab</li>
-        <li>📞 Phone — Show Desktop</li>
-      </ul>
+      <div class="setting-group">
+        <div class="setting-label">
+          <span>Scroll Sensitivity</span>
+          <span class="setting-val" id="scrollVal">40</span>
+        </div>
+        <input id="scroll" type="range" min="5" max="120" value="40">
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">
+          <span>Mouse Sensitivity</span>
+          <span class="setting-val" id="mouseVal">1.5</span>
+        </div>
+        <input id="mouse" type="range" min="0.5" max="3" value="1.5" step="0.1">
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">
+          <span>Cooldown (s)</span>
+          <span class="setting-val" id="cooldownVal">0.2</span>
+        </div>
+        <input id="cooldown" type="range" min="0.05" max="0.6" value="0.2" step="0.01">
+      </div>
+
+      <button id="saveCfg" class="btn primary small" style="width:100%;">💾 Save Settings</button>
+
+      <div class="legend">
+        <h4>🎯 Gesture Map</h4>
+        <div class="gesture-grid">
+          <div class="gesture-chip"><span class="g-icon">☝️</span><span class="g-label">Cursor</span></div>
+          <div class="gesture-chip"><span class="g-icon">✌️</span><span class="g-label">Click</span></div>
+          <div class="gesture-chip"><span class="g-icon">🤟</span><span class="g-label">Scroll ↑</span></div>
+          <div class="gesture-chip"><span class="g-icon">🖐️</span><span class="g-label">Scroll ↓</span></div>
+          <div class="gesture-chip"><span class="g-icon">✋</span><span class="g-label">Screenshot</span></div>
+          <div class="gesture-chip"><span class="g-icon">🤏</span><span class="g-label">Volume</span></div>
+          <div class="gesture-chip"><span class="g-icon">🤙</span><span class="g-label">Alt+Tab</span></div>
+          <div class="gesture-chip"><span class="g-icon">📞</span><span class="g-label">Desktop</span></div>
+        </div>
+      </div>
     </div>
   </div>
 </section>

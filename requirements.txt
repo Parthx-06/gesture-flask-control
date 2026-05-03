@@ -1,8 +1,10 @@
 flask
-opencv-python
+gunicorn
+opencv-python-headless
 mediapipe
 numpy
-pyautogui
-pycaw
-comtypes
-mediapipe
+
+# Windows-only (install manually on local dev, skip on Render)
+# pyautogui
+# pycaw
+# comtypes
