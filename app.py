@@ -1,4 +1,4 @@
-# app.py
+﻿# app.py
 from flask import Flask, render_template, Response, request, jsonify, send_from_directory
 import os
 import time
@@ -66,14 +66,15 @@ def api_config():
 @app.route("/video")
 def video():
     def gen():
+        import time
         while True:
             frame = controller.get_jpeg_frame()
-            if not frame:
-                break
-            yield (
-                b"--frame\r\n"
-                b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n"
-            )
+            if frame:
+                yield (
+                    b"--frame\r\n"
+                    b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n"
+                )
+            time.sleep(0.033)  # ~30 fps cap
 
     return Response(gen(), mimetype="multipart/x-mixed-replace; boundary=frame")
 
@@ -86,4 +87,5 @@ def screenshots(fname):
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=port, debug=False)
+
