@@ -1,9 +1,18 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}GestureFlow • Hand Gesture PC Control{% endblock %}
+
+{% if demo_mode %}
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+{% endblock %}
+{% endif %}
+
 {% block content %}
 <section class="hero">
   {% if demo_mode %}
-  <div class="demo-badge">⚡ Demo Mode — Run locally for full gesture control</div>
+  <div class="demo-badge">⚡ Browser Mode — Gesture detection running in your browser via webcam</div>
   {% endif %}
   <h1>Control Your PC with Hand Gestures</h1>
   <p>Move the cursor, click, scroll, switch apps, manage volume, and take screenshots — completely touch-free.</p>
@@ -20,7 +29,13 @@
   <div class="panel-left">
     <div class="video-card">
       <div class="video-wrap">
+        {% if demo_mode %}
+        <!-- Browser-side camera via MediaPipe JS -->
+        <video id="hiddenVideo" style="display:none;" playsinline></video>
+        <canvas id="gestureCanvas"></canvas>
+        {% else %}
         <img id="videoStream" src="/video" alt="Live gesture feed">
+        {% endif %}
       </div>
       <div class="status">
         <div class="status-item">
@@ -93,4 +108,11 @@
     </div>
   </div>
 </section>
+
+{% if demo_mode %}
+<script>
+  // ---- Browser-side MediaPipe gesture detection ----
+  window.DEMO_MODE = true;
+</script>
+{% endif %}
 {% endblock %}
